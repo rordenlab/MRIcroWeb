@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>MRIcroGL for Web</title>
+    <link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        html,
+        body {
+            padding: 0;
+            margin: 0;
+            height: 100%;
+            width: 100%;
+            background: #000000;
+        }
+
+        ul {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #333;
+        }
+
+        li {
+            float: left;
+        }
+
+        li a,
+        .dropbtn {
+            /* menu header */
+            display: inline-block;
+            color: white;
+            text-align: center;
+            padding: 14px 16px;
+            text-decoration: none;
+        }
+
+        li a:hover,
+        .dropdown:hover .dropbtn {
+            background-color: #44ABDA;
+        }
+
+        li.dropdown {
+            display: inline-block;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .dropdown-content {
+            font-family: Arial, Helvetica, sans-serif;
+            display: none;
+            position: absolute;
+            background-color: #f9f9f9;
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+            z-index: 1;
+        }
+
+        .dropdown-content a {
+            /* menu items */
+            color: black;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            text-align: left;
+        }
+
+        .dropdown-content a:hover {
+            background-color: #f1f1f1
+        }
+
+        .dropdown:hover .dropdown-content {
+            display: block;
+        }
+
+        .divider,
+        .overlay {
+            border-top: 1px solid grey;
+        }
+
+    	canvas {
+    		display: block;  /* prevents scrollbar */
+    		//width: 300px;
+    		//height: 300px;
+    		margin: 0;
+    		border: 0;
+    		width: 100vw;
+    		height: 90vh;
+    		max-width:100%;
+    		max-height:100%;
+    		overflow-x:hidden;
+    		overflow-y:hidden;
+    		    top: 0;
+    		    left: 0;
+    left: 0;
+    margin: 0 auto;
+   		}
+    </style>
+</head>
+
+<body>
+    <div id="menu-container">
+        <input id="file-input" type="file" name="name" style="display: none;" />
+        <ul>
+            <li class="dropdown">
+                <a href="javascript:void(0)" class="dropbtn" id="FileMenu">File</a>
+                <div class="dropdown-content">
+                    <a class="viewBtn" id="Open">Open</a>
+                    <a class="divider" id="About">About</a>
+                </div>
+            </li>
+            <li class="dropdown">
+                <a href="javascript:void(0)" class="dropbtn" id="ViewMenu">View</a>
+                <div class="dropdown-content">
+                    <a class="viewBtn" id="L">Left</a>
+                    <a class="viewBtn" id="R">Right</a>
+                    <a class="viewBtn" id="P">Posterior</a>
+                    <a class="viewBtn" id="A">Anterior</a>
+                    <a class="viewBtn" id="I">Inferior</a>
+                    <a class="viewBtn" id="S">Superior</a>
+                </div>
+            </li>
+            <li class="dropdown">
+                <a href="javascript:void(0)" class="dropbtn">Color</a>
+                <div class="dropdown-content">
+                    <a class="viewBtn" id="!Gray">Gray</a>
+                    <a class="viewBtn" id="!Plasma">Plasma</a>
+                    <a class="viewBtn" id="!Viridis">Viridis</a>
+                    <a class="viewBtn" id="!Inferno">Inferno</a>
+                    <a class="divider" id="BackColor">Background Color</a>
+                    <a class="viewBtn" id="ChangeContrast">Adjust brightness and contrast</a>
+                </div>
+            </li>
+
+
+            <li class="dropdown">
+                <a href="javascript:void(0)" class="dropbtn">Examples</a>
+                <div class="dropdown-content">
+                    <a class="viewBtn" id="_spm152.nii.gz">spm</a>
+                    <a class="viewBtn" id="_avg152T1_LR_nifti.nii.gz">avg</a>
+                    <a class="viewBtn" id="_Chris_MRA.nii.gz">MRA</a>
+                    <a class="viewBtn" id="_Chris_T1.nii.gz">T1</a>
+                    <a class="viewBtn" id="_Chris_T2.nii.gz">T2</a>
+                </div>
+            </li>
+        </ul>
+    </div>
+    <div id="gl-container" ondrop="drop(event)" ondragover="allowDrop(event)">
+    	<canvas id="glcanvas"></canvas>
+    </div>
+</body>
+    <script src="nifti/nifti-reader.js"></script>
+	<script src="volume/gl-matrix-min.js"></script>
+	<script src="volume/webgl-util.js"></script>
+	<script src="volume/shader-srcs.js"></script>
+	<script>
+		//Custom Intensity
+		// R/L/A/P/S/I
+		//var cubeStrip = [1,1,0, 0,1,0, 1,1,1, 0,1,1, 0,0,1, 0,1,0, 0,0,0, 1,1,0, 1,0,0, 1,1,1, 1,0,1, 0,0,1, 1,0,0, 0,0,0];
+		var cubeStrip = [0,1,0, 1,1,0, 0,1,1, 1,1,1, 1,0,1, 1,1,0, 1,0,0, 0,1,0, 0,0,0, 0,1,1, 0,0,1, 1,0,1, 0,0,0, 1,0,0];
+		var menuHeight = 6 + document.getElementById('menu-container').clientHeight;
+		var container = null;
+		var isBlackBackColor = true;
+		var gl = null;
+		var canvas = null;
+		var shader = null;
+		var volumeTexture = null;
+		var proj = null;
+		var camera = null;
+		var projView = null;
+		var newVolumeUpload = true;
+		var targetFrameTime = 32;
+		var samplingRate = 1.0;
+		//var menuHeight = 32 + document.getElementById('menu-container').clientHeight;
+		var WIDTH = 320;
+		var HEIGHT = 320;
+		canvas = document.getElementById("glcanvas");
+
+		//var WIDTH = window.innerWidth;
+    	//var HEIGHT = window.innerHeight - menuHeight ;
+		//canvas.setAttribute("width", WIDTH);
+		//canvas.setAttribute("height", HEIGHT);
+		var hdr;
+		var img;
+		const center = vec3.set(vec3.create(), 0.5, 0.5, 0.5);
+            var openDialog = document.createElement('input');
+            openDialog.type = 'file';
+            openDialog.onchange = e => {
+                //console.log(e.target.files[0]);
+                selectVolume(e.target.files[0], false);
+            }
+
+var loadVolume = function(url, isURL, onload) {
+	if (!isURL) {
+		var reader = new FileReader();
+        	reader.readAsArrayBuffer(url);
+            reader.addEventListener('load', function(event) {
+            	console.log(event.target.result);
+            	//loadGeometryCore(object, isOverlay);
+            	var hdr = nifti.readHeader(event.target.result);
+				var img;
+				if  (nifti.isCompressed(event.target.result)) {
+					img = nifti.readImage(hdr, nifti.decompress(event.target.result));
+				} else
+					img = nifti.readImage(hdr, event.target.result);
+				//img = new Uint8Array(img);
+				onload(url, hdr, img);
+
+            });
+        return;
+	}
+	var req = new XMLHttpRequest();
+	req.open("GET", url, true);
+	req.responseType = "arraybuffer";
+	req.onprogress = function(evt) {
+		//loadingProgressBar.setAttribute("style", "width: " + percent.toFixed(2) + "%");
+	};
+	req.onerror = function(evt) {
+		console.log = "Error Loading Volume";
+	};
+	req.onload = function(evt) {
+		var dataBuffer = req.response;
+		if (dataBuffer) {
+			var hdr = nifti.readHeader(dataBuffer);
+			var img;
+			if  (nifti.isCompressed(dataBuffer)) {
+				img = nifti.readImage(hdr, nifti.decompress(dataBuffer));
+			} else
+				img = nifti.readImage(hdr, dataBuffer);
+			//img = new Uint8Array(img);
+			onload(url, hdr, img);
+		} else {
+			alert("Unable to load buffer properly from volume?");
+			console.log("no buffer?");
+		}
+	};
+	req.send();
+}
+
+function updateVolume() { //load volume or change contrast
+		//convert data to 8-bit image
+		vox = hdr.dims[1] * hdr.dims[2] * hdr.dims[3];
+		img8 = new Uint8Array(vox);
+		if (hdr.datatypeCode === 2) //data already uint8
+			imgRaw = new Uint8Array(img);
+		else if (hdr.datatypeCode === 4)
+			var imgRaw = new Int16Array(img);
+		else if (hdr.datatypeCode === 16)
+			var imgRaw = new Float32Array(img);
+		else if (hdr.datatypeCode === 512)
+			var imgRaw = new Uint16Array(img);
+		mn = hdr.cal_min;
+		mx = hdr.cal_max;
+		var scale = 1;
+		if (mx > mn) scale = 255 / (mx-mn);
+		for (i = 0; i < (vox-1); i++) {
+			v = imgRaw[i];
+			v = (v * hdr.scl_slope) + hdr.scl_inter;
+			if (v < mn)
+				img8[i] = 0;
+			else if (v > mx)
+				img8[i] = 255;
+			else
+				img8[i] = (v-mn) * scale;
+		}
+		var tex = gl.createTexture();
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_3D, tex);
+		gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+		gl.pixelStorei( gl.UNPACK_ALIGNMENT, 1 )
+		gl.texStorage3D(gl.TEXTURE_3D, 1, gl.R8, hdr.dims[1], hdr.dims[2], hdr.dims[3]);
+		gl.texSubImage3D(gl.TEXTURE_3D, 0, 0, 0, 0,hdr.dims[1], hdr.dims[2], hdr.dims[3],gl.RED, gl.UNSIGNED_BYTE, img8);
+		var longestAxis = Math.max(hdr.dims[1], Math.max(hdr.dims[2], hdr.dims[3]));
+		var volScale = [hdr.dims[1] / longestAxis, hdr.dims[2] / longestAxis,hdr.dims[3] / longestAxis];
+		gl.uniform3iv(shader.uniforms["volume_dims"], [hdr.dims[1],hdr.dims[2],hdr.dims[3]]);
+		gl.uniform3fv(shader.uniforms["volume_scale"], volScale);
+		newVolumeUpload = true;
+		if (!volumeTexture) {
+			volumeTexture = tex;
+			setInterval(function() {
+				// Save them some battery if they're not viewing the tab
+				if (document.hidden) {
+					return;
+				}
+				var startTime = new Date();
+				gl.clearColor(0.0, 0.0, 0.0, 0.0);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+				// Reset the sampling rate and camera for new volumes
+				if (newVolumeUpload) {
+					//onWindowResize();
+					onWindowResize();
+					//camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
+					samplingRate = 1.0;
+					gl.uniform1f(shader.uniforms["dt_scale"], samplingRate);
+				}
+				projView = mat4.mul(projView, proj, camera.camera);
+				gl.uniformMatrix4fv(shader.uniforms["proj_view"], false, projView);
+				var eye = [camera.invCamera[12], camera.invCamera[13], camera.invCamera[14]];
+				gl.uniform3fv(shader.uniforms["eye_pos"], eye);
+				gl.drawArrays(gl.TRIANGLE_STRIP, 0, cubeStrip.length / 3);
+				// Wait for rendering to actually finish
+				gl.finish();
+				var endTime = new Date();
+				var renderTime = endTime - startTime;
+				var targetSamplingRate = renderTime / targetFrameTime;
+				// If we're dropping frames, decrease the sampling rate
+				if (!newVolumeUpload && targetSamplingRate > samplingRate) {
+					samplingRate = 0.5 * samplingRate + 0.5 * targetSamplingRate;
+					gl.uniform1f(shader.uniforms["dt_scale"], samplingRate);
+				}
+				newVolumeUpload = false;
+				startTime = endTime;
+			}, targetFrameTime);
+		} else {
+			gl.deleteTexture(volumeTexture);
+			volumeTexture = tex;
+		}
+}
+
+var selectVolume = function(url, isURL = true) {
+	loadVolume(url, isURL, function(file, xhdr, ximg) {
+		hdr = xhdr;
+		img = ximg;
+		//determine range
+		var imgRaw;
+		if (hdr.datatypeCode === 2) //data already uint8
+			imgRaw = new Uint8Array(img);
+		else if (hdr.datatypeCode === 4)  //Int16
+			imgRaw = new Int16Array(img);
+		else if (hdr.datatypeCode === 16)  //Float32
+			imgRaw = new Float32Array(img);
+		else if (hdr.datatypeCode === 512) //UInt16
+			imgRaw = new Uint16Array(img);
+		else {
+			alert('Unsupported data type');
+			console.log("Unsupported data type %d", hdr.datatypeCode);
+			var e = new Error('Unsupported data type', hdr.datatypeCode);
+			throw e;
+		}
+		var vox = imgRaw.length;
+		var mn = Infinity;
+		var mx = -Infinity;
+		for (i = 0; i < (vox-1); i++) {
+			if (!isFinite(imgRaw[i])) continue;
+			if (imgRaw[i] < mn) mn = imgRaw[i];
+			if (imgRaw[i] > mx) mx = imgRaw[i];
+		}
+		//calibrate intensity
+		if ((isFinite(hdr.scl_slope)) && (isFinite(hdr.scl_inter)) && (hdr.scl_slope !== 0.0 )) {
+			//console.log(">> mn %f mx %f %f %f", mn, mx, hdr.scl_slope, hdr.scl_inter);
+			mn = (mn * hdr.scl_slope) + hdr.scl_inter;
+			mx = (mx * hdr.scl_slope) + hdr.scl_inter;
+		} else {
+			hdr.scl_slope = 1.0;
+			hdr.scl_inter = 0.0;
+		}
+		console.log("vx %d type %d mn %f mx %f", vox, hdr.datatypeCode, mn, mx);
+		//console.log("cal mn..mx %f..%f", hdr.cal_min, hdr.cal_max);
+		hdr.global_min = mn;
+		hdr.global_max = mx;
+		if ((!isFinite(hdr.cal_min)) || (!isFinite(hdr.cal_max)) || (hdr.cal_min >= hdr.cal_max)) {
+			hdr.cal_min = mn;
+			hdr.cal_max = mx;
+		}
+		updateVolume();
+	});
+}
+
+function textureFromPixelArray(gl, dataArray, type, width, height) {
+    var dataTypedArray = new Uint8Array(dataArray); // Don't need to do this if the data is already in a typed array
+    var texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, type, width, height, 0, type, gl.UNSIGNED_BYTE, dataTypedArray);
+    // Other texture setup here, like filter modes and mipmap generation
+    return texture;
+}
+
+function makeLut(Rs, Gs, Bs, As, Is) {
+//create color lookup table provided arrays of reds, greens, blues, alphas and intensity indices
+//intensity indices should be in increasing order with the first value 0 and the last 255.
+// makeLut([0, 255], [0, 0], [0,0], [0,128],[0,255]); //red gradient
+	var lut = new Uint8Array(256 * 4);
+	for (i = 0; i < (Is.length-1); i++) {
+		//return a + f * (b - a);
+		var idxLo = Is[i];
+		var idxHi = Is[i+1];
+		var idxRng = idxHi - idxLo;
+		var k = idxLo * 4;
+		for (j = idxLo; j <= idxHi; j++) {
+			var f = (j-idxLo)/idxRng;
+			lut[k] = Rs[i] + f * (Rs[i+1]- Rs[i]); //Red
+			k++;
+			lut[k] = Gs[i] + f * (Gs[i+1]- Gs[i]); //Green
+			k++;
+			lut[k] = Bs[i] + f * (Bs[i+1]- Bs[i]); //Blue
+			k++;
+			lut[k] = As[i] + f * (As[i+1]- As[i]); //Alpha
+			k++;
+		}
+	}
+    return lut;
+}
+
+var selectColormap = function(lutName) {
+    var lut = makeLut([0, 255], [0, 255], [0,255], [0,128],[0,255]); //gray
+    if (lutName === "Plasma")
+		lut = makeLut([13, 156, 237, 240],[8, 23, 121, 249],[135, 158, 83, 33],[0, 56, 80, 88], [0, 64, 192, 255]); //plasma
+	if (lutName === "Viridis")
+		lut = makeLut([68,49,53,253],[1,104,183,231],[84,142,121,37],[0,56,80,88],[0,65,192,255]);//viridis
+	if (lutName === "Inferno")
+		lut = makeLut([0,120,237,240],[0,28,105,249],[4,109,37,33],[0,56,80,88],[0,64,192,255]);//inferno
+	var colormap = gl.createTexture();
+	gl.activeTexture(gl.TEXTURE1);
+	gl.bindTexture(gl.TEXTURE_2D, colormap);
+	gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, 256, 1);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+	gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 256, 1,gl.RGBA, gl.UNSIGNED_BYTE, lut);
+}
+
+window.onload = function(){
+            //menu items
+			var buttons = document.getElementsByClassName("viewBtn");
+			for (let i = 0; i < buttons.length; i++)
+				buttons[i].addEventListener("click", onButtonClick, false);
+			buttons = document.getElementsByClassName("divider");
+			for (let i = 0; i < buttons.length; i++)
+				buttons[i].addEventListener("click", onButtonClick, false);
+	gl = canvas.getContext("webgl2");
+	if (!gl) {
+		alert("Unable to initialize WebGL2. Your browser may not support it");
+		return;
+	}
+	window.addEventListener('resize', onWindowResize, false);
+	onWindowResize(true);
+	// Register mouse and touch listeners
+	var controller = new Controller();
+	controller.mousemove = function(prev, cur, evt) {
+		if (evt.buttons == 1) {
+			camera.rotate(prev, cur);
+
+		} else if (evt.buttons == 2) {
+			camera.pan([cur[0] - prev[0], prev[1] - cur[1]]);
+		}
+	};
+	controller.wheel = function(amt) { camera.zoom(amt); };
+	controller.pinch = controller.wheel;
+	controller.twoFingerDrag = function(drag) { camera.pan(drag); };
+	controller.registerForCanvas(canvas);
+	// Setup VAO and VBO to render the cube to run the raymarching shader
+	var vao = gl.createVertexArray();
+	gl.bindVertexArray(vao);
+	var vbo = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cubeStrip), gl.STATIC_DRAW);
+	gl.enableVertexAttribArray(0);
+	gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+	shader = new Shader(vertShader, fragShader);
+	shader.use();
+	gl.uniform1i(shader.uniforms["volume"], 0);
+	gl.uniform1i(shader.uniforms["colormap"], 1);
+	gl.uniform1f(shader.uniforms["dt_scale"], 1.0);
+	// Setup required OpenGL state for drawing the back faces and
+	// composting with the background color
+	gl.enable(gl.CULL_FACE);
+	gl.cullFace(gl.FRONT);
+	gl.enable(gl.BLEND);
+	gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+	//gl.clearColor(1, 0.5, 0.5, 3);
+	//onWindowResize();
+	// Load the default colormap and upload it, after which we
+	// load the default volume.
+	selectColormap("Gray");
+	//selectVolume("avg152T1_LR_nifti.nii.gz");
+	selectVolume("spmSmall.nii.gz");
+}
+
+function onWindowResize(isInit = false) {
+	var displayWidth  = canvas.clientWidth;
+  	var displayHeight = canvas.clientHeight;//menuHeight;
+ 	// Check if the canvas is not the same size.
+  	if (canvas.width  != displayWidth || canvas.height != displayHeight) {
+    	// Make the canvas the same size
+    	canvas.width  = displayWidth;
+    	canvas.height = displayHeight;
+    	WIDTH = displayWidth;
+    	HEIGHT = displayHeight;
+    	console.log("<< %s  %s", WIDTH, HEIGHT);
+  	}
+
+	/*WIDTH = window.innerWidth;
+    HEIGHT = window.innerHeight - menuHeight ;
+	canvas.setAttribute("width", WIDTH);
+	canvas.setAttribute("height", HEIGHT);
+	console.log("<< %s  %s", WIDTH, HEIGHT);
+	*/
+	//https://webglfundamentals.org/webgl/lessons/webgl-resizing-the-canvas.html
+	gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+	proj = mat4.perspective(mat4.create(), 15 * Math.PI / 180.0,WIDTH / HEIGHT, 0.1, 100);
+	camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
+	projView = mat4.create();
+	const kRot = Math.sqrt(0.5);
+    camera.rotateY([0.0,kRot]);
+    camera.rotateY([kRot,0.0]);
+
+	return;
+	if (isInit) return;
+	samplingRate = 1.0;
+	gl.uniform1f(shader.uniforms["dt_scale"], samplingRate);
+} //onWindowResize()
+
+			function onButtonClick(event) {
+                var el = this.parentNode;
+                el.style.display = "none";
+                setTimeout(function() { //close menu
+                    el.style.removeProperty("display");
+                }, 500);
+                if (event.target.id === "ChangeContrast") {
+					str = prompt("Set display intensity minimum and maximum", hdr.cal_min.toString()+" "+hdr.cal_max.toString() );
+					//if (isNaN(n))
+					//	return;
+					var strs = str.split(" ");
+					if (strs.length < 2) return;
+					hdr.cal_min = +strs[0];
+					hdr.cal_max = +strs[1];
+					updateVolume();
+					return;
+                }
+
+                if (event.target.id === "SaveBitmap") {
+
+					/*canvas.getContext('webgl',{preserveDrawingBuffer:true});
+					canvas.toBlob(function(blob) {
+					  var newImg = document.createElement("img"),
+						  url = URL.createObjectURL(blob);
+
+					  newImg.onload = function() {
+						// no longer need to read the blob so it's revoked
+						console.log(newImg);
+						URL.revokeObjectURL(url);
+					  };
+
+					  newImg.src = url;
+					  document.body.appendChild(newImg);
+					});
+                    return;
+                    const vctx = canvas.getContext('2d');
+					vctx.drawImage(webGLTestCanvas, 0, 0);
+					const capturedImage = videocanvas.toDataURL();
+					console.log(capturedImage);
+					return;
+*/
+
+                    var imgData;
+                    try {
+
+                    //var canvas = $("#mandelbox-canvas")[0];
+//drawScene()
+//var imgData = canvas.toDataURL("image/png").split(',')[1];
+                        var strMime = "image/png";
+                        var strDownloadMime = "image/octet-stream";
+                        //renderer.render(scene, camera);
+                        //imgData = renderer.domElement.toDataURL(strMime);
+                        //var imgData = canvas.domElement.toDataURL(strMime);
+                        canvas.getContext('webgl',{preserveDrawingBuffer:true});
+                        camera.updateCameraMatrix();
+                        var imgData = canvas.toDataURL(strMime);
+                        //var imgData = canvas.toDataURL("image/png").split(',')[1];
+                        console.log(imgData)
+
+                        saveFile(imgData.replace(strMime, strDownloadMime), "mricrogl.png");
+                    } catch (e) {
+                        console.log(e);
+                    }
+                    return;
+                }
+                if(event.target.id.charAt(0) === '!') { //load color scheme
+ 					s = event.target.id.substr(1);
+					selectColormap(s);
+					return;
+                }
+                if(event.target.id.charAt(0) === '_') { //load NIfTI volume
+ 					s = event.target.id.substr(1);
+					selectVolume(s);
+					return;
+                }
+                if (event.target.id === "Open") {
+                    openDialog.click();
+                    return;
+                }
+                if (event.target.id === "About") {
+                    alert("MRIcroGL for Web by Chris Rorden. Using Will Usher's Volume Raycaster");
+					return;
+
+                }
+                if (event.target.id === "BackColor") {
+                	if (isBlackBackColor)
+                		document.body.style.background = "#FFFFFF";
+                	else
+                		document.body.style.background = "#000000";
+                	isBlackBackColor = !isBlackBackColor;
+                	return;
+                }
+                const kRot = Math.sqrt(0.5);
+                if (event.target.id === "R") {
+                	camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
+                	camera.rotateY([0.0,kRot]);
+                	camera.rotateY([-kRot,0.0]);
+                	return;
+				}
+				if (event.target.id === "L") {
+                	camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
+                	camera.rotateY([0.0,kRot]);
+                	camera.rotateY([kRot,0.0]);
+                	return;
+				}
+				if (event.target.id === "A") {
+                	camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
+                	camera.rotateY([0.0,kRot]);
+                	camera.rotateY([kRot*2,0.0]);
+                	return;
+				}
+				if (event.target.id === "P") {
+                	camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
+                	camera.rotateY([0.0,kRot]);
+                	return;
+				}
+				if (event.target.id === "I") {
+                	camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
+                	camera.rotateY([-2*kRot,0]);
+                	return;
+				}
+				if (event.target.id === "S") {
+                	camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
+                	return;
+				}
+                console.log('Unknown menu item ', event.target.id);
+            } //onButtonClick()
+            var saveFile = function(strData, filename) {
+                var link = document.createElement('a');
+                if (typeof link.download === 'string') {
+                    document.body.appendChild(link); //Firefox requires the link to be in the body
+                    link.download = filename;
+                    link.href = strData;
+                    link.click();
+                    document.body.removeChild(link); //remove the link when done
+                } else {
+                    location.replace(uri);
+                }
+            } //saveFile()
+
+function allowDrop(ev) {
+  ev.preventDefault();
+}
+
+function drag(ev) {
+  ev.dataTransfer.setData("text", ev.target.id);
+}
+
+function drop(ev) {
+  ev.preventDefault();
+  console.log(ev.dataTransfer.files[0])
+  selectVolume(ev.dataTransfer.files[0], false);
+}
+    </script>
+
+
+
+</html>
