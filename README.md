@@ -9,18 +9,23 @@ By using webGL 2, these renderings can be viewed with web browsers on any comput
 # Components
 
  - Will Usher's [WebGL Volume rendering](https://github.com/Twinklebear/webgl-volume-raycaster).
- - Will Usher's [WebGL utilities](https://github.com/Twinklebear/webgl-volume-raycaster).
+ - Will Usher's [WebGL utilities](https://github.com/Twinklebear/webgl-util).
  - RII-UTHSCSA's [NIFTI-Reader](https://github.com/rii-mango/NIFTI-Reader-JS).
  - [glMatrix](http://glmatrix.net/) for matrix/vector operations.
  - [pako](https://github.com/nodeca/pako) for GZip decompression.
 
 # Alternatives
- - Leandro Roberto Barbagall's [volume renderer](http://www.lebarba.com/)
- - [XTK](https://github.com/xtk/X)
- - [three.js](https://threejs.org/examples/webgl2_materials_texture3d_volume.html) can read NRRD format images.
- - [med3web](https://github.com/epam/med3web) has an [elegant interface](https://med3web.opensource.epam.com/).
-## Images
  - [AMI supports volume rendering](https://github.com/FNNDSC/ami)
+ - Leandro Roberto Barbagallo's [volume renderer](http://www.lebarba.com/)
+ - [med3web](https://github.com/epam/med3web) has an [elegant interface](https://med3web.opensource.epam.com/)
+ - [Roland Rytz's volume rendering](https://github.com/RolandR/VolumeRayCasting)
+ - [ShareVol](https://github.com/OKaluza/sharevol) by [Owen Kaluza](http://owen.kaluza.id.au/sharevol/)
+ - [three.js](https://threejs.org/examples/webgl2_materials_texture3d_volume.html) can read NRRD format images
+ - [vtk-js](https://kitware.github.io/vtk-js/examples/VolumeViewer.html)
+ - [XTK](https://github.com/xtk/X)
+
+
+## Images
 
 ![Screenshot](web_render.png)
 
