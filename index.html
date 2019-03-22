@@ -82,21 +82,17 @@
         }
 
     	canvas {
-    		display: block;  /* prevents scrollbar */
-    		//width: 300px;
-    		//height: 300px;
-    		margin: 0;
-    		border: 0;
-    		width: 100vw;
-    		height: 90vh;
-    		max-width:100%;
-    		max-height:100%;
-    		overflow-x:hidden;
-    		overflow-y:hidden;
-    		    top: 0;
-    		    left: 0;
-    left: 0;
-    margin: 0 auto;
+			display: block;  /* prevents scrollbar */
+			border: 0;
+			width: 100vw;
+			height: 90vh;
+			max-width:100%;
+			max-height:100%;
+			overflow-x:hidden;
+			overflow-y:hidden;
+			top: 0;
+			left: 0;
+			margin: 0 auto;
    		}
     </style>
 </head>
@@ -109,6 +105,7 @@
                 <a href="javascript:void(0)" class="dropbtn" id="FileMenu">File</a>
                 <div class="dropdown-content">
                     <a class="viewBtn" id="Open">Open</a>
+                    <a class="viewBtn" id="SaveBitmap">Screen Shot</a>
                     <a class="divider" id="About">About</a>
                 </div>
             </li>
@@ -134,8 +131,6 @@
                     <a class="viewBtn" id="ChangeContrast">Adjust brightness and contrast</a>
                 </div>
             </li>
-
-
             <li class="dropdown">
                 <a href="javascript:void(0)" class="dropbtn">Examples</a>
                 <div class="dropdown-content">
@@ -152,46 +147,39 @@
     	<canvas id="glcanvas"></canvas>
     </div>
 </body>
-    <script src="nifti/nifti-reader.js"></script>
-	<script src="volume/gl-matrix-min.js"></script>
-	<script src="volume/webgl-util.js"></script>
-	<script src="volume/shader-srcs.js"></script>
-	<script>
-		//Custom Intensity
-		// R/L/A/P/S/I
-		//var cubeStrip = [1,1,0, 0,1,0, 1,1,1, 0,1,1, 0,0,1, 0,1,0, 0,0,0, 1,1,0, 1,0,0, 1,1,1, 1,0,1, 0,0,1, 1,0,0, 0,0,0];
-		var cubeStrip = [0,1,0, 1,1,0, 0,1,1, 1,1,1, 1,0,1, 1,1,0, 1,0,0, 0,1,0, 0,0,0, 0,1,1, 0,0,1, 1,0,1, 0,0,0, 1,0,0];
-		var menuHeight = 6 + document.getElementById('menu-container').clientHeight;
-		var container = null;
-		var isBlackBackColor = true;
-		var gl = null;
-		var canvas = null;
-		var shader = null;
-		var volumeTexture = null;
-		var proj = null;
-		var camera = null;
-		var projView = null;
-		var newVolumeUpload = true;
-		var targetFrameTime = 32;
-		var samplingRate = 1.0;
-		//var menuHeight = 32 + document.getElementById('menu-container').clientHeight;
-		var WIDTH = 320;
-		var HEIGHT = 320;
-		canvas = document.getElementById("glcanvas");
+<script src="nifti/nifti-reader.js"></script>
+<script src="volume/gl-matrix-min.js"></script>
+<script src="volume/webgl-util.js"></script>
+<script src="volume/shader-srcs.js"></script>
+<script src="volume/FileSaver.js"></script>
+<script>
 
-		//var WIDTH = window.innerWidth;
-    	//var HEIGHT = window.innerHeight - menuHeight ;
-		//canvas.setAttribute("width", WIDTH);
-		//canvas.setAttribute("height", HEIGHT);
-		var hdr;
-		var img;
-		const center = vec3.set(vec3.create(), 0.5, 0.5, 0.5);
-            var openDialog = document.createElement('input');
-            openDialog.type = 'file';
-            openDialog.onchange = e => {
-                //console.log(e.target.files[0]);
-                selectVolume(e.target.files[0], false);
-            }
+//var cubeStrip = [1,1,0, 0,1,0, 1,1,1, 0,1,1, 0,0,1, 0,1,0, 0,0,0, 1,1,0, 1,0,0, 1,1,1, 1,0,1, 0,0,1, 1,0,0, 0,0,0];
+var takeScreenShot = false;
+var cubeStrip = [0,1,0, 1,1,0, 0,1,1, 1,1,1, 1,0,1, 1,1,0, 1,0,0, 0,1,0, 0,0,0, 0,1,1, 0,0,1, 1,0,1, 0,0,0, 1,0,0];
+var container = null;
+var isBlackBackColor = true;
+var gl = null;
+var canvas = null;
+var shader = null;
+var volumeTexture = null;
+var proj = null;
+var camera = null;
+var projView = null;
+var newVolumeUpload = true;
+var targetFrameTime = 32;
+var samplingRate = 1.0;
+var WIDTH = 320;
+var HEIGHT = 320;
+canvas = document.getElementById("glcanvas");
+var hdr;
+var img;
+const center = vec3.set(vec3.create(), 0.5, 0.5, 0.5);
+var openDialog = document.createElement('input');
+openDialog.type = 'file';
+openDialog.onchange = e => {
+	selectVolume(e.target.files[0], false);
+}
 
 var loadVolume = function(url, isURL, onload) {
 	if (!isURL) {
@@ -238,91 +226,95 @@ var loadVolume = function(url, isURL, onload) {
 		}
 	};
 	req.send();
-}
+} //loadVolume()
 
 function updateVolume() { //load volume or change contrast
-		//convert data to 8-bit image
-		vox = hdr.dims[1] * hdr.dims[2] * hdr.dims[3];
-		img8 = new Uint8Array(vox);
-		if (hdr.datatypeCode === 2) //data already uint8
-			imgRaw = new Uint8Array(img);
-		else if (hdr.datatypeCode === 4)
-			var imgRaw = new Int16Array(img);
-		else if (hdr.datatypeCode === 16)
-			var imgRaw = new Float32Array(img);
-		else if (hdr.datatypeCode === 512)
-			var imgRaw = new Uint16Array(img);
-		mn = hdr.cal_min;
-		mx = hdr.cal_max;
-		var scale = 1;
-		if (mx > mn) scale = 255 / (mx-mn);
-		for (i = 0; i < (vox-1); i++) {
-			v = imgRaw[i];
-			v = (v * hdr.scl_slope) + hdr.scl_inter;
-			if (v < mn)
-				img8[i] = 0;
-			else if (v > mx)
-				img8[i] = 255;
-			else
-				img8[i] = (v-mn) * scale;
-		}
-		var tex = gl.createTexture();
-		gl.activeTexture(gl.TEXTURE0);
-		gl.bindTexture(gl.TEXTURE_3D, tex);
-		gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
-		gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-		gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-		gl.pixelStorei( gl.UNPACK_ALIGNMENT, 1 )
-		gl.texStorage3D(gl.TEXTURE_3D, 1, gl.R8, hdr.dims[1], hdr.dims[2], hdr.dims[3]);
-		gl.texSubImage3D(gl.TEXTURE_3D, 0, 0, 0, 0,hdr.dims[1], hdr.dims[2], hdr.dims[3],gl.RED, gl.UNSIGNED_BYTE, img8);
-		var longestAxis = Math.max(hdr.dims[1], Math.max(hdr.dims[2], hdr.dims[3]));
-		var volScale = [hdr.dims[1] / longestAxis, hdr.dims[2] / longestAxis,hdr.dims[3] / longestAxis];
-		gl.uniform3iv(shader.uniforms["volume_dims"], [hdr.dims[1],hdr.dims[2],hdr.dims[3]]);
-		gl.uniform3fv(shader.uniforms["volume_scale"], volScale);
-		newVolumeUpload = true;
-		if (!volumeTexture) {
-			volumeTexture = tex;
-			setInterval(function() {
-				// Save them some battery if they're not viewing the tab
-				if (document.hidden) {
-					return;
-				}
-				var startTime = new Date();
-				gl.clearColor(0.0, 0.0, 0.0, 0.0);
-				gl.clear(gl.COLOR_BUFFER_BIT);
-				// Reset the sampling rate and camera for new volumes
-				if (newVolumeUpload) {
-					//onWindowResize();
-					onWindowResize();
-					//camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
-					samplingRate = 1.0;
-					gl.uniform1f(shader.uniforms["dt_scale"], samplingRate);
-				}
-				projView = mat4.mul(projView, proj, camera.camera);
-				gl.uniformMatrix4fv(shader.uniforms["proj_view"], false, projView);
-				var eye = [camera.invCamera[12], camera.invCamera[13], camera.invCamera[14]];
-				gl.uniform3fv(shader.uniforms["eye_pos"], eye);
-				gl.drawArrays(gl.TRIANGLE_STRIP, 0, cubeStrip.length / 3);
-				// Wait for rendering to actually finish
-				gl.finish();
-				var endTime = new Date();
-				var renderTime = endTime - startTime;
-				var targetSamplingRate = renderTime / targetFrameTime;
-				// If we're dropping frames, decrease the sampling rate
-				if (!newVolumeUpload && targetSamplingRate > samplingRate) {
-					samplingRate = 0.5 * samplingRate + 0.5 * targetSamplingRate;
-					gl.uniform1f(shader.uniforms["dt_scale"], samplingRate);
-				}
-				newVolumeUpload = false;
-				startTime = endTime;
-			}, targetFrameTime);
-		} else {
-			gl.deleteTexture(volumeTexture);
-			volumeTexture = tex;
-		}
-}
+	//convert data to 8-bit image
+	vox = hdr.dims[1] * hdr.dims[2] * hdr.dims[3];
+	img8 = new Uint8Array(vox);
+	if (hdr.datatypeCode === 2) //data already uint8
+		imgRaw = new Uint8Array(img);
+	else if (hdr.datatypeCode === 4)
+		var imgRaw = new Int16Array(img);
+	else if (hdr.datatypeCode === 16)
+		var imgRaw = new Float32Array(img);
+	else if (hdr.datatypeCode === 512)
+		var imgRaw = new Uint16Array(img);
+	mn = hdr.cal_min;
+	mx = hdr.cal_max;
+	var scale = 1;
+	if (mx > mn) scale = 255 / (mx-mn);
+	for (i = 0; i < (vox-1); i++) {
+		v = imgRaw[i];
+		v = (v * hdr.scl_slope) + hdr.scl_inter;
+		if (v < mn)
+			img8[i] = 0;
+		else if (v > mx)
+			img8[i] = 255;
+		else
+			img8[i] = (v-mn) * scale;
+	}
+	var tex = gl.createTexture();
+	gl.activeTexture(gl.TEXTURE0);
+	gl.bindTexture(gl.TEXTURE_3D, tex);
+	gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	gl.pixelStorei( gl.UNPACK_ALIGNMENT, 1 )
+	gl.texStorage3D(gl.TEXTURE_3D, 1, gl.R8, hdr.dims[1], hdr.dims[2], hdr.dims[3]);
+	gl.texSubImage3D(gl.TEXTURE_3D, 0, 0, 0, 0,hdr.dims[1], hdr.dims[2], hdr.dims[3],gl.RED, gl.UNSIGNED_BYTE, img8);
+	var longestAxis = Math.max(hdr.dims[1], Math.max(hdr.dims[2], hdr.dims[3]));
+	var volScale = [hdr.dims[1] / longestAxis, hdr.dims[2] / longestAxis,hdr.dims[3] / longestAxis];
+	gl.uniform3iv(shader.uniforms["volume_dims"], [hdr.dims[1],hdr.dims[2],hdr.dims[3]]);
+	gl.uniform3fv(shader.uniforms["volume_scale"], volScale);
+	newVolumeUpload = true;
+	if (!volumeTexture) {
+		volumeTexture = tex;
+		setInterval(function() {
+			// Save them some battery if they're not viewing the tab
+			if (document.hidden) {
+				return;
+			}
+			var startTime = new Date();
+			gl.clearColor(0.0, 0.0, 0.0, 0.0);
+			gl.clear(gl.COLOR_BUFFER_BIT);
+			// Reset the sampling rate and camera for new volumes
+			if (newVolumeUpload) {
+				//onWindowResize();
+				onWindowResize();
+				//camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
+				samplingRate = 1.0;
+				gl.uniform1f(shader.uniforms["dt_scale"], samplingRate);
+			}
+			projView = mat4.mul(projView, proj, camera.camera);
+			gl.uniformMatrix4fv(shader.uniforms["proj_view"], false, projView);
+			var eye = [camera.invCamera[12], camera.invCamera[13], camera.invCamera[14]];
+			gl.uniform3fv(shader.uniforms["eye_pos"], eye);
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, cubeStrip.length / 3);
+			// Wait for rendering to actually finish
+			gl.finish();
+			var endTime = new Date();
+			var renderTime = endTime - startTime;
+			var targetSamplingRate = renderTime / targetFrameTime;
+			if (takeScreenShot) {
+				takeScreenShot = false;
+				canvas.toBlob(function(b) { saveAs(b, "screen.png"); }, "image/png");
+			}
+			// If we're dropping frames, decrease the sampling rate
+			if (!newVolumeUpload && targetSamplingRate > samplingRate) {
+				samplingRate = 0.5 * samplingRate + 0.5 * targetSamplingRate;
+				gl.uniform1f(shader.uniforms["dt_scale"], samplingRate);
+			}
+			newVolumeUpload = false;
+			startTime = endTime;
+		}, targetFrameTime);
+	} else {
+		gl.deleteTexture(volumeTexture);
+		volumeTexture = tex;
+	}
+} //updateVolume()
 
 var selectVolume = function(url, isURL = true) {
 	loadVolume(url, isURL, function(file, xhdr, ximg) {
@@ -371,7 +363,7 @@ var selectVolume = function(url, isURL = true) {
 		}
 		updateVolume();
 	});
-}
+} // selectVolume()
 
 function textureFromPixelArray(gl, dataArray, type, width, height) {
     var dataTypedArray = new Uint8Array(dataArray); // Don't need to do this if the data is already in a typed array
@@ -380,7 +372,7 @@ function textureFromPixelArray(gl, dataArray, type, width, height) {
     gl.texImage2D(gl.TEXTURE_2D, 0, type, width, height, 0, type, gl.UNSIGNED_BYTE, dataTypedArray);
     // Other texture setup here, like filter modes and mipmap generation
     return texture;
-}
+} // textureFromPixelArray()
 
 function makeLut(Rs, Gs, Bs, As, Is) {
 //create color lookup table provided arrays of reds, greens, blues, alphas and intensity indices
@@ -406,7 +398,7 @@ function makeLut(Rs, Gs, Bs, As, Is) {
 		}
 	}
     return lut;
-}
+} // makeLut()
 
 var selectColormap = function(lutName) {
     var lut = makeLut([0, 255], [0, 255], [0,255], [0,128],[0,255]); //gray
@@ -424,16 +416,16 @@ var selectColormap = function(lutName) {
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 	gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 256, 1,gl.RGBA, gl.UNSIGNED_BYTE, lut);
-}
+} // selectColormap()
 
 window.onload = function(){
-            //menu items
-			var buttons = document.getElementsByClassName("viewBtn");
-			for (let i = 0; i < buttons.length; i++)
-				buttons[i].addEventListener("click", onButtonClick, false);
-			buttons = document.getElementsByClassName("divider");
-			for (let i = 0; i < buttons.length; i++)
-				buttons[i].addEventListener("click", onButtonClick, false);
+	//menu items
+	var buttons = document.getElementsByClassName("viewBtn");
+	for (let i = 0; i < buttons.length; i++)
+		buttons[i].addEventListener("click", onButtonClick, false);
+	buttons = document.getElementsByClassName("divider");
+	for (let i = 0; i < buttons.length; i++)
+		buttons[i].addEventListener("click", onButtonClick, false);
 	gl = canvas.getContext("webgl2");
 	if (!gl) {
 		alert("Unable to initialize WebGL2. Your browser may not support it");
@@ -481,182 +473,113 @@ window.onload = function(){
 	selectColormap("Gray");
 	//selectVolume("avg152T1_LR_nifti.nii.gz");
 	selectVolume("spmSmall.nii.gz");
-}
+} // window.onload()
 
 function onWindowResize(isInit = false) {
-	var displayWidth  = canvas.clientWidth;
-  	var displayHeight = canvas.clientHeight;//menuHeight;
+	WIDTH = canvas.clientWidth;
+  	HEIGHT = canvas.clientHeight;//menuHeight;
  	// Check if the canvas is not the same size.
-  	if (canvas.width  != displayWidth || canvas.height != displayHeight) {
+  	if (canvas.width  != WIDTH || canvas.height != HEIGHT) {
     	// Make the canvas the same size
-    	canvas.width  = displayWidth;
-    	canvas.height = displayHeight;
-    	WIDTH = displayWidth;
-    	HEIGHT = displayHeight;
+    	canvas.width  = WIDTH;
+    	canvas.height = HEIGHT;
     	console.log("<< %s  %s", WIDTH, HEIGHT);
   	}
-
-	/*WIDTH = window.innerWidth;
-    HEIGHT = window.innerHeight - menuHeight ;
-	canvas.setAttribute("width", WIDTH);
-	canvas.setAttribute("height", HEIGHT);
-	console.log("<< %s  %s", WIDTH, HEIGHT);
-	*/
 	//https://webglfundamentals.org/webgl/lessons/webgl-resizing-the-canvas.html
 	gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-
 	proj = mat4.perspective(mat4.create(), 15 * Math.PI / 180.0,WIDTH / HEIGHT, 0.1, 100);
 	camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
 	projView = mat4.create();
 	const kRot = Math.sqrt(0.5);
     camera.rotateY([0.0,kRot]);
     camera.rotateY([kRot,0.0]);
-
-	return;
-	if (isInit) return;
-	samplingRate = 1.0;
-	gl.uniform1f(shader.uniforms["dt_scale"], samplingRate);
+	//if (isInit) return;
+	//samplingRate = 1.0;
+	//gl.uniform1f(shader.uniforms["dt_scale"], samplingRate);
 } //onWindowResize()
 
-			function onButtonClick(event) {
-                var el = this.parentNode;
-                el.style.display = "none";
-                setTimeout(function() { //close menu
-                    el.style.removeProperty("display");
-                }, 500);
-                if (event.target.id === "ChangeContrast") {
-					str = prompt("Set display intensity minimum and maximum", hdr.cal_min.toString()+" "+hdr.cal_max.toString() );
-					//if (isNaN(n))
-					//	return;
-					var strs = str.split(" ");
-					if (strs.length < 2) return;
-					hdr.cal_min = +strs[0];
-					hdr.cal_max = +strs[1];
-					updateVolume();
-					return;
-                }
-
-                if (event.target.id === "SaveBitmap") {
-
-					/*canvas.getContext('webgl',{preserveDrawingBuffer:true});
-					canvas.toBlob(function(blob) {
-					  var newImg = document.createElement("img"),
-						  url = URL.createObjectURL(blob);
-
-					  newImg.onload = function() {
-						// no longer need to read the blob so it's revoked
-						console.log(newImg);
-						URL.revokeObjectURL(url);
-					  };
-
-					  newImg.src = url;
-					  document.body.appendChild(newImg);
-					});
-                    return;
-                    const vctx = canvas.getContext('2d');
-					vctx.drawImage(webGLTestCanvas, 0, 0);
-					const capturedImage = videocanvas.toDataURL();
-					console.log(capturedImage);
-					return;
-*/
-
-                    var imgData;
-                    try {
-
-                    //var canvas = $("#mandelbox-canvas")[0];
-//drawScene()
-//var imgData = canvas.toDataURL("image/png").split(',')[1];
-                        var strMime = "image/png";
-                        var strDownloadMime = "image/octet-stream";
-                        //renderer.render(scene, camera);
-                        //imgData = renderer.domElement.toDataURL(strMime);
-                        //var imgData = canvas.domElement.toDataURL(strMime);
-                        canvas.getContext('webgl',{preserveDrawingBuffer:true});
-                        camera.updateCameraMatrix();
-                        var imgData = canvas.toDataURL(strMime);
-                        //var imgData = canvas.toDataURL("image/png").split(',')[1];
-                        console.log(imgData)
-
-                        saveFile(imgData.replace(strMime, strDownloadMime), "mricrogl.png");
-                    } catch (e) {
-                        console.log(e);
-                    }
-                    return;
-                }
-                if(event.target.id.charAt(0) === '!') { //load color scheme
- 					s = event.target.id.substr(1);
-					selectColormap(s);
-					return;
-                }
-                if(event.target.id.charAt(0) === '_') { //load NIfTI volume
- 					s = event.target.id.substr(1);
-					selectVolume(s);
-					return;
-                }
-                if (event.target.id === "Open") {
-                    openDialog.click();
-                    return;
-                }
-                if (event.target.id === "About") {
-                    alert("MRIcroGL for Web by Chris Rorden. Using Will Usher's Volume Raycaster");
-					return;
-
-                }
-                if (event.target.id === "BackColor") {
-                	if (isBlackBackColor)
-                		document.body.style.background = "#FFFFFF";
-                	else
-                		document.body.style.background = "#000000";
-                	isBlackBackColor = !isBlackBackColor;
-                	return;
-                }
-                const kRot = Math.sqrt(0.5);
-                if (event.target.id === "R") {
-                	camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
-                	camera.rotateY([0.0,kRot]);
-                	camera.rotateY([-kRot,0.0]);
-                	return;
-				}
-				if (event.target.id === "L") {
-                	camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
-                	camera.rotateY([0.0,kRot]);
-                	camera.rotateY([kRot,0.0]);
-                	return;
-				}
-				if (event.target.id === "A") {
-                	camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
-                	camera.rotateY([0.0,kRot]);
-                	camera.rotateY([kRot*2,0.0]);
-                	return;
-				}
-				if (event.target.id === "P") {
-                	camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
-                	camera.rotateY([0.0,kRot]);
-                	return;
-				}
-				if (event.target.id === "I") {
-                	camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
-                	camera.rotateY([-2*kRot,0]);
-                	return;
-				}
-				if (event.target.id === "S") {
-                	camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
-                	return;
-				}
-                console.log('Unknown menu item ', event.target.id);
-            } //onButtonClick()
-            var saveFile = function(strData, filename) {
-                var link = document.createElement('a');
-                if (typeof link.download === 'string') {
-                    document.body.appendChild(link); //Firefox requires the link to be in the body
-                    link.download = filename;
-                    link.href = strData;
-                    link.click();
-                    document.body.removeChild(link); //remove the link when done
-                } else {
-                    location.replace(uri);
-                }
-            } //saveFile()
+function onButtonClick(event) {
+	var el = this.parentNode;
+	el.style.display = "none";
+	setTimeout(function() { //close menu
+		el.style.removeProperty("display");
+	}, 500);
+	if (event.target.id === "ChangeContrast") {
+		str = prompt("Set display intensity minimum and maximum", hdr.cal_min.toString()+" "+hdr.cal_max.toString() );
+		//if (isNaN(n))
+		//	return;
+		var strs = str.split(" ");
+		if (strs.length < 2) return;
+		hdr.cal_min = +strs[0];
+		hdr.cal_max = +strs[1];
+		updateVolume();
+		return;
+	}
+	if (event.target.id === "SaveBitmap") {
+		takeScreenShot = true;
+		return;
+	}
+	if(event.target.id.charAt(0) === '!') { //load color scheme
+		s = event.target.id.substr(1);
+		selectColormap(s);
+		return;
+	}
+	if(event.target.id.charAt(0) === '_') { //load NIfTI volume
+		s = event.target.id.substr(1);
+		selectVolume(s);
+		return;
+	}
+	if (event.target.id === "Open") {
+		openDialog.click();
+		return;
+	}
+	if (event.target.id === "About") {
+		alert("MRIcroGL for Web by Chris Rorden. Using Will Usher's Volume Raycaster");
+		return;
+	}
+	if (event.target.id === "BackColor") {
+		if (isBlackBackColor)
+			document.body.style.background = "#FFFFFF";
+		else
+			document.body.style.background = "#000000";
+		isBlackBackColor = !isBlackBackColor;
+		return;
+	}
+	const kRot = Math.sqrt(0.5);
+	if (event.target.id === "R") {
+		camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
+		camera.rotateY([0.0,kRot]);
+		camera.rotateY([-kRot,0.0]);
+		return;
+	}
+	if (event.target.id === "L") {
+		camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
+		camera.rotateY([0.0,kRot]);
+		camera.rotateY([kRot,0.0]);
+		return;
+	}
+	if (event.target.id === "A") {
+		camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
+		camera.rotateY([0.0,kRot]);
+		camera.rotateY([kRot*2,0.0]);
+		return;
+	}
+	if (event.target.id === "P") {
+		camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
+		camera.rotateY([0.0,kRot]);
+		return;
+	}
+	if (event.target.id === "I") {
+		camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
+		camera.rotateY([-2*kRot,0]);
+		return;
+	}
+	if (event.target.id === "S") {
+		camera = new ArcballCamera(center, 2, [WIDTH, HEIGHT]);
+		return;
+	}
+	console.log('Unknown menu item ', event.target.id);
+} //onButtonClick()
 
 function allowDrop(ev) {
   ev.preventDefault();
@@ -671,8 +594,6 @@ function drop(ev) {
   console.log(ev.dataTransfer.files[0])
   selectVolume(ev.dataTransfer.files[0], false);
 }
-    </script>
 
-
-
+</script>
 </html>
