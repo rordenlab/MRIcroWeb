@@ -148,6 +148,7 @@ Controller.prototype.registerForCanvas = function(canvas) {
 			self.mousemove(prevMouse, curMouse, evt);
 		}
 		prevMouse = curMouse;
+		this.dispatchEvent(new CustomEvent('cameraRedraw', { bubbles: true  }))
 	});
 
 	canvas.addEventListener("wheel", function(evt) {
@@ -155,6 +156,7 @@ Controller.prototype.registerForCanvas = function(canvas) {
 		if (self.wheel) {
 			self.wheel(-evt.deltaY);
 		}
+		this.dispatchEvent(new CustomEvent('cameraRedraw', { bubbles: true  }))
 	});
 
 	canvas.oncontextmenu = function (evt) {
@@ -169,6 +171,7 @@ Controller.prototype.registerForCanvas = function(canvas) {
 			var t = evt.changedTouches[i];
 			touches[t.identifier] = [t.clientX - rect.left, t.clientY - rect.top];
 		}
+		this.dispatchEvent(new CustomEvent('cameraRedraw', { bubbles: true  }))
 	});
 
 	canvas.addEventListener("touchmove", function(evt) {
@@ -259,6 +262,7 @@ Controller.prototype.registerForCanvas = function(canvas) {
 			var t = evt.changedTouches[i];
 			touches[t.identifier] = [t.clientX - rect.left, t.clientY - rect.top];
 		}
+		this.dispatchEvent(new CustomEvent('cameraRedraw', { bubbles: true  }))
 	});
 
 	var touchEnd = function(evt) {
@@ -267,6 +271,7 @@ Controller.prototype.registerForCanvas = function(canvas) {
 			var t = evt.changedTouches[i];
 			delete touches[t.identifier];
 		}
+		this.dispatchEvent(new CustomEvent('cameraRedraw', { bubbles: true  }))
 	}
 	canvas.addEventListener("touchcancel", touchEnd);
 	canvas.addEventListener("touchend", touchEnd);
